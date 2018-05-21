@@ -1,12 +1,10 @@
-package oeg.vicinity.eos;
+package service;
 
-import oeg.vicinity.eos.controller.TedController;
+import service.controller.TedController;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import java.util.Arrays;
 
 @SpringBootApplication
 public class EosApplication implements ApplicationRunner {
@@ -21,6 +19,7 @@ public class EosApplication implements ApplicationRunner {
         String [] stringArgs = args.getSourceArgs();
         if(stringArgs.length == 1 && stringArgs[0].equals("--help")){
             System.out.println("VICINITY GATEWAY API SERVICES usage:\n\t - reads from the environment variables the configuration\n\t--config [file.json] - reads the configuration from the specified file\n\t--help - show this message\n\n[CONFIGURATION PARAMETERS]");
+            System.exit(0);
         } else if(stringArgs.length == 0) {
             // Reads setup from environment variables and initializes global variables
             TedController.initializeFromEnvironmentVariables();
@@ -31,11 +30,12 @@ public class EosApplication implements ApplicationRunner {
                 TedController.initializeFromFile(file);
             }else{
                 TedController.log.severe("Provided json file for configuration is empty");
+                System.exit(0);
             }
         }else{
            TedController.log.severe("Incorrect arguments were provided to the GATEWAY API SERVICES");
             System.out.println("VICINITY GATEWAY API SERVICES arguments:\n\t[empty] -> reads from the environment variables the configuration\n\t--config [file.json] -> reads the configuration from the specified file\n\t--help -> show this message\n\n[CONFIGURATION PARAMETERS]");
-
+            System.exit(0);
         }
 
     }

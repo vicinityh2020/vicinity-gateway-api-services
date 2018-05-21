@@ -1,11 +1,10 @@
-package oeg.vicinity.eos.controller;
+package service.controller;
 
 
 import com.mashape.unirest.http.Unirest;
 import org.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import sun.misc.IOUtils;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -38,15 +37,19 @@ public class TedController {
                 AGORA_ENDPOINT = config.getString("AGORA_ENDPOINT");
             } else {
                 log.severe("Provided config file does not exists: "+file);
+                System.exit(0);
             }
         }catch(Exception e){
             log.severe(e.toString());
+            System.exit(0);
         }
         // Check that read enpoint is actually correct
         if(AGORA_ENDPOINT!= null && !AGORA_ENDPOINT.isEmpty()) {
             log.info("\tAgora endpoint: " + AGORA_ENDPOINT);
+            initEndpoints();
         }else{
             log.warning("\tERROR, NO AGORA ENDPOINT WAS SPECIFIED IN THE CONFIG FILE UNDER KEY 'AGORA_ENDPOINT'");
+            System.exit(0);
         }
     }
 
@@ -57,10 +60,12 @@ public class TedController {
         AGORA_ENDPOINT = System.getenv("AGORA_ENDPOINT");
         if(AGORA_ENDPOINT!=null && !AGORA_ENDPOINT.isEmpty()) {
             log.info("\tAgora endpoint: " + AGORA_ENDPOINT);
+            initEndpoints();
         }else{
-            log.warning("\tERROR, NO AGORA ENDPOINT WAS SPECIFIED AS ENVIRONMENT VARIABLE UNDER 'AGORA_ENDPOINT'");
+            log.severe("\tERROR, No Agora endpoint was specified as environment variable under 'AGORA_ENDPOINT'");
+            System.exit(0);
         }
-        initEndpoints();
+
     }
 
     private static void initEndpoints(){
