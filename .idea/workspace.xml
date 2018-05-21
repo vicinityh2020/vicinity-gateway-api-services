@@ -1,15 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="39310ec8-517e-4ce8-ab21-5d79605384ff" name="Default" comment="">
-      <change beforePath="" afterPath="$PROJECT_DIR$/.idea/vcs.xml" />
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" afterPath="$PROJECT_DIR$/.idea/workspace.xml" />
-      <change beforePath="$PROJECT_DIR$/Dockerfile" afterPath="$PROJECT_DIR$/Dockerfile" />
-      <change beforePath="$PROJECT_DIR$/README.md" afterPath="$PROJECT_DIR$/README.md" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/oeg/vicinity/eos/EosApplication.java" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/src/main/java/oeg/vicinity/eos/controller/TedController.java" afterPath="" />
-      <change beforePath="$PROJECT_DIR$/src/test/java/oeg/vicinity/eos/EosApplicationTests.java" afterPath="" />
-    </list>
+    <list default="true" id="39310ec8-517e-4ce8-ab21-5d79605384ff" name="Default" comment="" />
     <ignored path="$PROJECT_DIR$/out/" />
     <ignored path="$PROJECT_DIR$/target/" />
     <ignored path="$PROJECT_DIR$/../agorajclient/target/" />
@@ -70,8 +62,8 @@
         <entry file="file://$PROJECT_DIR$/README.md">
           <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
             <state split_layout="SPLIT">
-              <first_editor relative-caret-position="493">
-                <caret line="101" column="163" lean-forward="false" selection-start-line="101" selection-start-column="163" selection-end-line="101" selection-end-column="163" />
+              <first_editor relative-caret-position="283">
+                <caret line="87" column="7" lean-forward="true" selection-start-line="87" selection-start-column="7" selection-end-line="87" selection-end-column="7" />
                 <folding />
               </first_editor>
               <second_editor />
@@ -456,12 +448,12 @@
       <workItem from="1526889954622" duration="5200000" />
       <workItem from="1526910278153" duration="62000" />
       <workItem from="1526910811919" duration="501000" />
-      <workItem from="1526911326110" duration="2705000" />
+      <workItem from="1526911326110" duration="2826000" />
     </task>
     <servers />
   </component>
   <component name="TimeTrackingManager">
-    <option name="totallyTimeSpent" value="55292000" />
+    <option name="totallyTimeSpent" value="55413000" />
   </component>
   <component name="ToolWindowManager">
     <frame x="9" y="23" width="1899" height="961" extended-state="0" />
@@ -905,8 +897,8 @@
     <entry file="file://$PROJECT_DIR$/README.md">
       <provider selected="true" editor-type-id="split-provider[text-editor;markdown-preview-editor]">
         <state split_layout="SPLIT">
-          <first_editor relative-caret-position="493">
-            <caret line="101" column="163" lean-forward="false" selection-start-line="101" selection-start-column="163" selection-end-line="101" selection-end-column="163" />
+          <first_editor relative-caret-position="283">
+            <caret line="87" column="7" lean-forward="true" selection-start-line="87" selection-start-column="7" selection-end-line="87" selection-end-column="7" />
             <folding />
           </first_editor>
           <second_editor />
