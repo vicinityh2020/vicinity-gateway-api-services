@@ -97,6 +97,7 @@ Once the Gateway API Services is running several services are available
 | URL        | Type |                  Headers                 | Body Content                                                                                   |
 |------------|------|:----------------------------------------:|------------------------------------------------------------------------------------------------|
 | /discovery | POST | None                                     | A SPARQL Query                                                                                 |
+| /plan      | POST | None                                     | A SPARQL Query                                                                                 |
 | /resource  | POST | {  "Content-Type" : "application/json" } | A JSON document containing the IRI of a resource as value:   {     "resource" : "http://..." } |
 
 Some examples of the Gateway API Services usage Interface can be found [here](https://documenter.getpostman.com/view/3240053/vicinity-gateway-api-services/RVu1Hr6o)
