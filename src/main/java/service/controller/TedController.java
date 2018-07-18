@@ -5,6 +5,7 @@ import com.mashape.unirest.http.Unirest;
 import org.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
 
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -79,7 +80,7 @@ public class TedController {
      * @param response The HTTP Response that the Servlet will respond after this method is invoked
      * @return A JSON-LD document containing Things relevant to the query, i.e., a TED
      */
-    @RequestMapping(value ="/ted", method = RequestMethod.POST, produces = "application/ld+json")
+    @RequestMapping(value ="/discovery", method = RequestMethod.POST, produces = "application/ld+json")
     @ResponseBody
     public String getSuitableTed(@RequestBody String query,  HttpServletResponse response) {
         Boolean strict = true;
@@ -87,7 +88,6 @@ public class TedController {
 
         // Preamble
         response.setHeader("Server", "Gateway API Services of VICINITY");
-        StringWriter responseBody = new StringWriter();
         log.info("Ted retrieving request for query: \n"+query);
         log.info("\tStrict: "+strict);
         log.info("\tMin: "+min);
@@ -185,13 +185,8 @@ public class TedController {
         return newIRI;
     }
 
-    @RequestMapping(value ="/", method = RequestMethod.GET)
-    @ResponseBody
-    public String getTest() {
-        return "Vicinity Gateway API Services";
-    }
 
-
+ 
 
 
 

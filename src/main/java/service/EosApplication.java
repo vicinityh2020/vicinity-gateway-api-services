@@ -1,24 +1,30 @@
 package service;
 
 import service.controller.TedController;
+
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.web.servlet.config.annotation.ViewControllerRegistry;
+
 
 @SpringBootApplication
-public class EosApplication implements ApplicationRunner {
+public class EosApplication implements ApplicationRunner{
 
+	// TODO: handle white label errors, return a custom template
+
+	
 	public static void main(String[] args) {
 		SpringApplication.run(EosApplication.class, args);
 	}
 
 
-    @Override
+
     public void run(ApplicationArguments args) throws Exception {
         String [] stringArgs = args.getSourceArgs();
         if(stringArgs.length == 1 && stringArgs[0].equals("--help")){
-            System.out.println("VICINITY GATEWAY API SERVICES usage:\n\t - reads from the environment variables the configuration\n\t--config [file.json] - reads the configuration from the specified file\n\t--help - show this message\n\n[CONFIGURATION PARAMETERS]");
+        		System.out.println("VICINITY GATEWAY API SERVICES usage:\n\t - reads from the environment variables the configuration\n\t--config [file.json] - reads the configuration from the specified file\n\t--help - show this message\n\n[CONFIGURATION PARAMETERS]");
             System.exit(0);
         } else if(stringArgs.length == 0) {
             // Reads setup from environment variables and initializes global variables
@@ -34,9 +40,8 @@ public class EosApplication implements ApplicationRunner {
             }
         }else{
            TedController.log.severe("Incorrect arguments were provided to the GATEWAY API SERVICES");
-            System.out.println("VICINITY GATEWAY API SERVICES arguments:\n\t[empty] -> reads from the environment variables the configuration\n\t--config [file.json] -> reads the configuration from the specified file\n\t--help -> show this message\n\n[CONFIGURATION PARAMETERS]");
+           System.out.println("VICINITY GATEWAY API SERVICES arguments:\n\t[empty] -> reads from the environment variables the configuration\n\t--config [file.json] -> reads the configuration from the specified file\n\t--help -> show this message\n\n[CONFIGURATION PARAMETERS]");
             System.exit(0);
         }
-
     }
 }
