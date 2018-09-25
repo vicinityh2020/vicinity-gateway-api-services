@@ -7,88 +7,42 @@ The VICINITY Gateway API Services provides semantic interoperability in the VICI
 * Generate discovery and consumption plans (query plans) for queries issued from VICINITY Nodes.
 * Retrieve static RDF of semantic resources
 
+
+
+
 ### Installation 
+
+Download the [latest](https://github.com/vicinityh2020/vicinity-gateway-api-services/releases) release of the VICINITY Gateway API Services. Then, create a configuration file as explained in the **Configuration** section, and finally, follow the isntructions provided in the **Deploying VICINITY Gateway API Services** section of this document.
+
+##### Build an executable The VICINITY Gateway API Services jar
+Download this project, then move to its directory and compile the project with maven. As output a target folder will be created containing the *jar* file. 
 
 ```
 #!shell
 git clone https://github.com/vicinityh2020/vicinity-gateway-api-services.git
+cd vicinity-gateway-api-services
+mvn clean package
 ```
-Following a jar file can be generated or a Docker image
-##### Build an executable jar
-Compile the source and build a jar file:
-```
-#!shell
-sudo mvn clean package
-```
-A target folder will be generated with the gateway-api-services.jar file that allows to start the service as we will explain in next section. 
-
-##### Build a docker image
-Generate a Docker image:
-```
-#!shell
-bash mvnw install dockerfile:build # mvnw is provided with the code
-
-```
-
-
+The compiled *jar* allows to start the service as we explain in the **Deploying VICINITY Gateway API Services** section.
 
 ### Configuration 
 
-The Gateway API Services relies on an [Agora service](https://github.com/fserena/agora-py). The quickest way to deploy a service is downloading from its [repository](https://github.com/fserena/agora-docker) the Docker files and setting up the different parameters according to the requirements. A recommended docker-compose file is the following:
+In order to deploy the VICINITY Gateway API Services we need to define a configuration file, and run an [Agora service](https://github.com/fserena/agora-cli). The configuration file is a JSON document containing the Agora service address and the domain under which we want to publish data. To shed some light over this configuration file and its content check the snippet below containing the pointer to a local Agora service; notice that we established *http://vicinity.eu/data* as domain to publish the RDF resources.
+
 ```
-version: '2'
-services:
-  fountain:
-    image: fserena/agora-fountain
-    environment:
-      FOUNTAIN_DB_HOST: redis
-  agora-nginx:
-    image: fserena/agora-nginx
-    ports:
-    - 8000:80/tcp
-  discovery:
-    image: fserena/agora-gw
-    environment:
-      API_PORT: '8000'
-      EXTENSION_BASE: http://localhost:8000/
-      FOUNTAIN_HOST: fountain
-      FOUNTAIN_PORT: '5000'
-      QUERY_CACHE_HOST: redis
-      REPOSITORY_BASE: http://localhost:8000/
-      SPARQL_HOST: http://localhost:7200/repositories/tds
-      UPDATE_HOST: http://localhost:7200/repositories/tds/statements
-  redis:
-    image: redis
-```
-Deploy Agora navigating to the directory where this file is located and executing the following commands to manage the service
-```
-!#shell
-docker-compose up -d # starts the service
-docker-compose stop  # stops the service
-docker-compose down  # erases the service content
+{
+	"AGORA_ENDPOINT" : "http://gateway-services.vicinity.linkeddata.es",
+	"DATA_DOMAIN" : "http://vicinity.eu/data"
+}
 ```
 
+### Deploying VICINITY Gateway API Services
 
-### Deploying 
-
-Afeter an Agora service is deployed the Gateway API Services can be started from the terminal using a config file typing:
+To start the VICINITY Gateway API Services we need to type:
 ```
-!#shell
-# Using port 8081
-java -Djava.security.egd=file:/dev/./urandom -Dserver.port=8081 -jar gateway-api-services.jar --config config.json
+java -jar gateway-api-services.jar --config configFile.json
 ```
-On the other hand a docker version can be deployed as follows:
-```
-docker run -d --name gateway-api-services -p 8081:8081 springio/gateway-api-services
-```
-
-Finally we can deploy the Gateway API Services into a Docker image and upload such image to a public repository
-```
-!#shell
-docker run -d --name gateway-api-services -p 8081:8081 springio/gateway-api-services
-docker tag springio/gateway-api-services [YOUR DOCKER ACCOUNT]/gateway-api-services 
-docker push [YOUR DOCKER ACCOUNT]/gateway-api-services
-```
+After that the service will start on port *8081*, the log will be displayed on the same terminal used to start the process.
 
 ### Service Usage
 Once the Gateway API Services is running several services are available
