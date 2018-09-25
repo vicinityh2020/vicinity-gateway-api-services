@@ -9,7 +9,6 @@ The VICINITY Gateway API Services provides semantic interoperability in the VICI
 
 ### Installation 
 
-Download the source code from the repository:
 ```
 #!shell
 git clone https://github.com/vicinityh2020/vicinity-gateway-api-services.git
@@ -96,6 +95,7 @@ Once the Gateway API Services is running several services are available
 
 | URL        | Type |                  Headers                 | Body Content                                                                                   |
 |------------|------|:----------------------------------------:|------------------------------------------------------------------------------------------------|
+| /prefixes  | GET  | None                                     | -                                                                                              |
 | /discovery | POST | None                                     | A SPARQL Query                                                                                 |
 | /plan      | POST | None                                     | A SPARQL Query                                                                                 |
 | /resource  | POST | {  "Content-Type" : "application/json" } | A JSON document containing the IRI of a resource as value:   {     "resource" : "http://..." } |

@@ -1,0 +1,3 @@
+service/EosApplication.class
+service/controller/GatewayServicesController.class
+service/controller/MainController.class
