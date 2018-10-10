@@ -3,6 +3,7 @@ package service.controller;
 import org.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+
 import com.mashape.unirest.http.Unirest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
@@ -20,12 +21,13 @@ public class GatewayServicesController {
 	// -- Attributes
 	
     private static Logger log = Logger.getLogger(GatewayServicesController.class.getName());
-    private static String TED_ENDPOINT;
-    private static String PREFIXES_ENDPOINT;
-    private static String AGORA_ENDPOINT;
+    private static String tedEndpoint;
+    private static String planEndpoint;
+    private static String prefixesEndpoint;
+    private static String agoraEndpoint;
 
-    private static String DATA_DOMAIN;
-    
+    private static String dataDomain;
+    private static final String HEADER_ACCEPT_KEY = "Accept";
     // -- Constructor
     public GatewayServicesController() {
     		// empty
@@ -47,8 +49,8 @@ public class GatewayServicesController {
                 String content = new String(Files.readAllBytes(Paths.get(file)));
                 JSONObject config = new JSONObject(content);
                 if(config.has("AGORA_ENDPOINT") && config.has("DATA_DOMAIN")) {
-                		AGORA_ENDPOINT = config.getString("AGORA_ENDPOINT");
-                		DATA_DOMAIN = config.getString("DATA_DOMAIN");
+                		agoraEndpoint = config.getString("AGORA_ENDPOINT");
+                		dataDomain = config.getString("DATA_DOMAIN");
                 }else {
                 	 	log.severe("Provided config lacks of a mandatory key, either 'AGORA_ENDPOINT' or 'DATA_DOMAIN'");
                      System.exit(0);
@@ -70,14 +72,16 @@ public class GatewayServicesController {
      */
     private static void validateAgoraEndpoints(){
     		// 2. Check that read enpoint is correct, i.e., not null & not empty
-        if(AGORA_ENDPOINT!= null && !AGORA_ENDPOINT.isEmpty() && DATA_DOMAIN!=null && !DATA_DOMAIN.isEmpty()) {
-            TED_ENDPOINT = AGORA_ENDPOINT.concat("/discover");
-            PREFIXES_ENDPOINT = AGORA_ENDPOINT.concat("/prefixes");
+        if(agoraEndpoint!= null && !agoraEndpoint.isEmpty() && dataDomain!=null && !dataDomain.isEmpty()) {
+            tedEndpoint = agoraEndpoint.concat("/discover");
+            prefixesEndpoint = agoraEndpoint.concat("/prefixes");
+            planEndpoint = agoraEndpoint.concat("/plan");
             log.info("Agora endpoints: ");
-            log.log(Level.INFO, () -> "\t>"+AGORA_ENDPOINT);
-            log.log(Level.INFO, () -> "\t>"+PREFIXES_ENDPOINT);
-            log.log(Level.INFO, () -> "\t>"+TED_ENDPOINT);
-            log.log(Level.INFO, () -> "Local data domain is "+DATA_DOMAIN);
+            log.log(Level.INFO, () -> "\t>"+agoraEndpoint);
+            log.log(Level.INFO, () -> "\t>"+prefixesEndpoint);
+            log.log(Level.INFO, () -> "\t>"+tedEndpoint);
+            log.log(Level.INFO, () -> "\t>"+planEndpoint);
+            log.log(Level.INFO, () -> "Local data domain is "+dataDomain);
         }else{
             log.severe("No Agora endpoint was specifiedin the config file under key 'AGORA_ENDPOINT'");
             System.exit(0);
@@ -105,10 +109,10 @@ public class GatewayServicesController {
     		// 1. Prepare response & request headers
     		prepareResonse(response);
         Map<String, String> headers = new HashMap<>();
-        headers.put("Accept", "application/json");
+        headers.put(HEADER_ACCEPT_KEY, "application/json");
         	// 2. Request prefixes to Agora
         try {
-			String jsonPrefixesString = Unirest.get(PREFIXES_ENDPOINT).headers(headers).asJson().getBody().toString();
+			String jsonPrefixesString = Unirest.get(prefixesEndpoint).headers(headers).asJson().getBody().toString();
 			jsonPrefixes = new JSONObject(jsonPrefixesString);
 		} catch (Exception e) {
 			log.severe(e.toString());
@@ -149,7 +153,7 @@ public class GatewayServicesController {
         		response.setStatus( HttpServletResponse.SC_NO_CONTENT );
         }
         // 4. Change domain of IRIs from Agora's to Local
-        jsonTed =  jsonTed.replace(AGORA_ENDPOINT, DATA_DOMAIN);
+        jsonTed =  jsonTed.replace(agoraEndpoint, dataDomain);
         // 5. Return TED
         return jsonTed;
     }
@@ -165,17 +169,17 @@ public class GatewayServicesController {
         String jsonTed = "";
         // 1. Set request headers
         Map<String, String> headers = new HashMap<>();
-        headers.put("Accept", "application/ld+json");
+        headers.put(HEADER_ACCEPT_KEY, "application/ld+json");
         try {
         		// 2. Send POST request to Agora
             if (strict && min) {
-                jsonTed = Unirest.post(TED_ENDPOINT+"?strict&min").headers(headers).body(query).asJson().getBody().toString();
+                jsonTed = Unirest.post(tedEndpoint+"?strict&min").headers(headers).body(query).asJson().getBody().toString();
             } else if (strict) {
-                jsonTed = Unirest.post(TED_ENDPOINT+"?strict").headers(headers).body(query).asJson().getBody().toString();
+                jsonTed = Unirest.post(tedEndpoint+"?strict").headers(headers).body(query).asJson().getBody().toString();
             } else if (min) {
-                jsonTed = Unirest.post(TED_ENDPOINT+"?min").headers(headers).body(query).asJson().getBody().toString();
+                jsonTed = Unirest.post(tedEndpoint+"?min").headers(headers).body(query).asJson().getBody().toString();
             } else {
-                jsonTed = Unirest.post(TED_ENDPOINT).headers(headers).body(query).asJson().getBody().toString();
+                jsonTed = Unirest.post(tedEndpoint).headers(headers).body(query).asJson().getBody().toString();
             }
         }catch(Exception e){
             log.severe(e.toString());
@@ -202,7 +206,7 @@ public class GatewayServicesController {
             JSONObject jsonDocument = new JSONObject(document);
             String iri = jsonDocument.getString("resource");
             // 3. Transform the value of key 'resource' into an IRI in the namespace of Agora
-            iri = translateIRIToNamespace(iri, AGORA_ENDPOINT); // this could be actually a simple regex
+            iri = translateIRIToNamespace(iri, agoraEndpoint); // this could be actually a simple regex
             if(!iri.isEmpty()) {
 	            // 3.A Request Agora the resource RDF
 	            resourceRDF = Unirest.get(iri).asJson().getBody().toString();
@@ -219,7 +223,7 @@ public class GatewayServicesController {
         }
         
         // 4. Change domain of IRIs from Agora's to Local
-        resourceRDF =  resourceRDF.replace(AGORA_ENDPOINT, DATA_DOMAIN);
+        resourceRDF =  resourceRDF.replace(agoraEndpoint, dataDomain);
         // 5. Return resource RDF
         return resourceRDF;
     }
@@ -256,7 +260,7 @@ public class GatewayServicesController {
      * @param response The HTTP Response that the Servlet will respond after this method is invoked
      * @return A JSON-LD document containing the query Plan
      */
-    @RequestMapping(value ="/plan", method = RequestMethod.POST, produces = "application/ld+json")
+    @RequestMapping(value ="/plan", method = RequestMethod.POST, produces = "text/turtle")
     @ResponseBody
     public String getPlan(@RequestBody String query,  HttpServletResponse response) {
         String plan = "";
@@ -268,10 +272,10 @@ public class GatewayServicesController {
         try {
         		// 3.1 Prepare headers 
         		Map<String, String> headers = new HashMap<>();
-            headers.put("Accept", "application/ld+json");
+            headers.put(HEADER_ACCEPT_KEY, "text/turtle");
+            headers.put("Content-Type", "application/json");
             // 3.2 Prepare body
-            String body = transformToAGP(query);
-            plan = Unirest.post(TED_ENDPOINT+"?strict&min").headers(headers).body(query).asJson().getBody().toString(); 
+            plan = Unirest.post(planEndpoint).headers(headers).body(query).asString().getBody();
         }catch(Exception e){
             log.severe(e.toString());
         }
@@ -281,7 +285,7 @@ public class GatewayServicesController {
         		response.setStatus( HttpServletResponse.SC_NO_CONTENT );
         }
         // 4. Change domain of IRIs from Agora's to Local
-        plan =  plan.replace(AGORA_ENDPOINT, DATA_DOMAIN);
+        plan =  plan.replace(agoraEndpoint, dataDomain);
         // 5. Return Plan
         return plan;
     }
@@ -295,7 +299,8 @@ public class GatewayServicesController {
     		// 1. Retrieve AGP from query	
     		return null;
     }
-
+    
+ 
     
    
 
