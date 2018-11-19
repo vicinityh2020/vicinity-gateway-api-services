@@ -11,6 +11,13 @@
 	<name>Gateway-Api-Services</name>
 	<description>Component of Gateway API Services of VICINITY that given a query returns a suitable TED in the neighbourhood of a device</description>
 
+<repositories>
+        <repository>
+            <id>github.vicinity.distributed-query-client</id>
+            <url>https://github.com/vicinityh2020/vicinity-open-gateway-api-distributed-query-client/tree/maven</url>
+        </repository>
+    </repositories>
+
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
@@ -45,26 +52,7 @@
 			<artifactId>unirest-java</artifactId>
 			<version>1.4.9</version>
 		</dependency>
-		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpclient</artifactId>
-			<version>4.3.6</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpasyncclient</artifactId>
-			<version>4.0.2</version>
-		</dependency>
-		<dependency>
-			<groupId>org.apache.httpcomponents</groupId>
-			<artifactId>httpmime</artifactId>
-			<version>4.3.6</version>
-		</dependency>
-		<dependency>
-			<groupId>org.json</groupId>
-			<artifactId>json</artifactId>
-			<version>20140107</version>
-		</dependency>
+		
 
         <!-- Jena: basic libraries (all in one) -->
 		<!-- https://mvnrepository.com/artifact/org.apache.jena/apache-jena-libs -->
@@ -75,6 +63,11 @@
 			<type>pom</type>
 		</dependency>
 
+	   <dependency>
+            <groupId>vicinity.oeg.vicinity-open-gateway-api-distributed-query-client</groupId>
+    		<artifactId>vicinity-open-gateway-api-distributed-query-client</artifactId>
+    		<version>1.0</version>
+        </dependency>
     </dependencies>
 
 	<build>

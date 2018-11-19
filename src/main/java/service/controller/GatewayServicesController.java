@@ -1,16 +1,26 @@
 package service.controller;
 
+import org.apache.jena.rdf.model.Literal;
+import org.apache.jena.rdf.model.Model;
+import org.apache.jena.rdf.model.ModelFactory;
+import org.apache.jena.rdf.model.Property;
+import org.apache.jena.rdf.model.Resource;
+import org.apache.jena.rdf.model.ResourceFactory;
+import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
 import com.mashape.unirest.http.Unirest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
+import java.net.URLEncoder;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -26,8 +36,13 @@ public class GatewayServicesController {
     private static String prefixesEndpoint;
     private static String agoraEndpoint;
 
-    private static String dataDomain;
+    private static String dataDomain = "http://vicinity.eu/data";
+    private static String repositoryEndpoint;
     private static final String HEADER_ACCEPT_KEY = "Accept";
+    private final String queryHead = "?name=&infer=true&sameAs=true&query=";
+
+    	private Map<String,Model> cache = new ConcurrentHashMap<String, Model>();
+    
     // -- Constructor
     public GatewayServicesController() {
     		// empty
@@ -48,9 +63,11 @@ public class GatewayServicesController {
             if (f.exists()) {
                 String content = new String(Files.readAllBytes(Paths.get(file)));
                 JSONObject config = new JSONObject(content);
-                if(config.has("AGORA_ENDPOINT") && config.has("DATA_DOMAIN")) {
+                if(config.has("AGORA_ENDPOINT") && config.has("DATA_DOMAIN") && config.has("SEMANTIC_REPOSITORY_ENDPOINT")) {
                 		agoraEndpoint = config.getString("AGORA_ENDPOINT");
                 		dataDomain = config.getString("DATA_DOMAIN");
+                		repositoryEndpoint = config.getString("SEMANTIC_REPOSITORY_ENDPOINT");
+                		
                 }else {
                 	 	log.severe("Provided config lacks of a mandatory key, either 'AGORA_ENDPOINT' or 'DATA_DOMAIN'");
                      System.exit(0);
@@ -82,6 +99,7 @@ public class GatewayServicesController {
             log.log(Level.INFO, () -> "\t>"+tedEndpoint);
             log.log(Level.INFO, () -> "\t>"+planEndpoint);
             log.log(Level.INFO, () -> "Local data domain is "+dataDomain);
+            log.log(Level.INFO, () -> "\t>"+repositoryEndpoint);
         }else{
             log.severe("No Agora endpoint was specifiedin the config file under key 'AGORA_ENDPOINT'");
             System.exit(0);
@@ -105,6 +123,7 @@ public class GatewayServicesController {
     @RequestMapping(value ="/prefixes", method = RequestMethod.GET, produces = "application/json")
     @ResponseBody
     public String getPrefixes(HttpServletResponse response) {
+    		Unirest.setTimeouts(0, 0);
     	 	JSONObject jsonPrefixes = new JSONObject();
     		// 1. Prepare response & request headers
     		prepareResonse(response);
@@ -147,17 +166,21 @@ public class GatewayServicesController {
         log.info(query);
         // 3. Retrieve TED from Agora and set response code
         String jsonTed = retrieveTED(query, strict, min);
-        if(!jsonTed.isEmpty()) {
+        if(jsonTed!=null) {
             response.setStatus( HttpServletResponse.SC_OK );
         }else {
-        		response.setStatus( HttpServletResponse.SC_NO_CONTENT );
+        		response.setStatus( HttpServletResponse.SC_INTERNAL_SERVER_ERROR );
         }
         // 4. Change domain of IRIs from Agora's to Local
         jsonTed =  jsonTed.replace(agoraEndpoint, dataDomain);
+        log.info("Returning ted");
         // 5. Return TED
         return jsonTed;
     }
 
+    
+
+    
     /**
      * This method retrieves from Agora the TED for a given query
      * @param query A SPARQL query
@@ -166,7 +189,8 @@ public class GatewayServicesController {
      * @return A JSON-LD document containing the TED for the provided query
      */
     private String retrieveTED(String query, Boolean strict, Boolean min){
-        String jsonTed = "";
+    		Unirest.setTimeouts(0, 0);
+        String jsonTed = null;
         // 1. Set request headers
         Map<String, String> headers = new HashMap<>();
         headers.put(HEADER_ACCEPT_KEY, "application/ld+json");
@@ -198,6 +222,7 @@ public class GatewayServicesController {
     @RequestMapping(value ="/resource", method = RequestMethod.POST, produces = "application/json")
     @ResponseBody
     public String getSemanticResource(@RequestBody String document,  HttpServletResponse response) {
+    		Unirest.setTimeouts(0, 0);
         String resourceRDF = "";
         // 1. Prepare response
         prepareResonse(response);
@@ -263,6 +288,7 @@ public class GatewayServicesController {
     @RequestMapping(value ="/plan", method = RequestMethod.POST, produces = "text/turtle")
     @ResponseBody
     public String getPlan(@RequestBody String query,  HttpServletResponse response) {
+    		Unirest.setTimeouts(0, 0);
         String plan = "";
     		// 2. Prepare response
         prepareResonse(response);
@@ -300,8 +326,149 @@ public class GatewayServicesController {
     		return null;
     }
     
- 
-    
-   
+    /**
+     * This method returns a Thing Ecosystem Description (TED) containing Things relevant to answer a given query
+     * @param query A SPARQL query
+     * @param response The HTTP Response that the Servlet will respond after this method is invoked
+     * @return A JSON-LD document containing Things relevant to the query, i.e., a TED
+     */
+    @RequestMapping(value ="/advanced-discovery", method = RequestMethod.POST, produces = "application/ld+json")
+    @ResponseBody
+    public String getDiscovery(@RequestBody String query, @RequestParam String neighbors, HttpServletResponse response) {
+    		prepareResonse(response);
+    		Unirest.setTimeouts(0, 0);
+    		String ted = "{}";
+    		String endpoint = repositoryEndpoint;
+    		// 1. Following variables are Agora bespoke setup, we set them with such values since fit better for VICINITY requirements
+    		if(!query.isEmpty()) {
+    			try {
+	    				log.info("Discovery query received");
+	    				// Build TED
+	    	    			ted = buildTED(endpoint, neighbors);
+					response.setStatus( HttpServletResponse.SC_OK );
+					log.info("TED answered");
+			} catch (Exception e) {
+				log.severe(e.toString());
+			}
+    		}
 
+    		return ted;
+    }
+
+
+
+	private String buildTED(String endpoint, String ted) {
+		Model tedFiltered = parseRDF("<http://vicinity.eu/data/ted> a <http://iot.linkeddata.es/def/core#ThingEcosystemDescription>;\n   <http://iot.linkeddata.es/def/core#describes> <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225> .\n \n <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225>  a <http://iot.linkeddata.es/def/core#Ecosystem>.", "TURTLE");
+		Property hasComponentPredicate = ResourceFactory.createProperty("http://iot.linkeddata.es/def/core#hasComponent");
+		String[] oids = ted.split(",");
+		int maxIndex = oids.length;
+		int index = 0;
+		while(index < maxIndex) {
+			String oid = oids[index].trim();
+			String thing = GatewayServicesController.dataDomain+"/things/"+oid;
+			if(!cache.containsKey(thing)) {
+				// retrieve all the RDF of the IRI in 'line'
+				this.visitedIRIs = new ArrayList<>();
+				Model thingRDF = retrieveThingRDF(endpoint, thing);
+				if(!thingRDF.isEmpty()) {
+					// add thing to ted
+					tedFiltered.add(ResourceFactory.createResource("http://bnodes/N9e711c303f3e40f7872d87ccb66cc225"), hasComponentPredicate, ResourceFactory.createResource(thing));
+					tedFiltered.add(thingRDF);
+					cache.put(thing, thingRDF);
+				}
+			}else {
+				tedFiltered.add(ResourceFactory.createResource("http://bnodes/N9e711c303f3e40f7872d87ccb66cc225"), hasComponentPredicate, ResourceFactory.createResource(thing));
+				tedFiltered.add(cache.get(thing));
+			}
+			
+			index++;
+		}
+		// TODO: IMPROVE THIS CACHE
+		
+		
+		return toString(tedFiltered,"JSONLD");
+	}
+	
+	private List<String> visitedIRIs;
+	private Model retrieveThingRDF(String endpoint, String thingIri) {
+		Model tedFiltered = ModelFactory.createDefaultModel();
+
+		try {
+			if(!visitedIRIs.contains(thingIri)) {
+				visitedIRIs.add(thingIri);
+				String thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("select distinct * where { <"+thingIri+"> ?p ?o . }","UTF-8")+"&execute=";
+				String thingRDF = Unirest.get(thingRequest).asString().getBody();
+				String[] thingLines = thingRDF.split("\n");
+				int maxIndex = thingLines.length;
+				int index = 1;
+				while(index < maxIndex) {
+					String thingLine = thingLines[index];
+					int commaIndex = thingLine.indexOf(',');
+					if(commaIndex>-1) {
+						Property predicate = ResourceFactory.createProperty(thingLine.substring(0, commaIndex).trim());
+						String object =  thingLine.substring(commaIndex+1, thingLine.length()).trim();
+						Model thingRDFRetrieved = processThingRDF(endpoint, predicate, object, thingIri);
+						tedFiltered.add(thingRDFRetrieved);
+						index++;
+					}else {
+						break;
+					}
+				}
+			}
+		} catch (Exception e) {
+			log.severe(e.toString());
+		}
+		
+		return tedFiltered;
+	}
+	
+	private Model processThingRDF(String endpoint, Property predicate, String object, String thingIri) {
+		Model tedFiltered = ModelFactory.createDefaultModel();
+			if(object.startsWith("http")) {
+				Resource resource = ResourceFactory.createResource(object);
+				tedFiltered.add(ResourceFactory.createResource(thingIri),predicate, resource);
+				Model auxiliarRDF = ModelFactory.createDefaultModel();
+				if(object.contains("/things") || object.contains("/descriptions") || ( object.startsWith("http://bnode") && !predicate.toString().contains("http://iot.linkeddata.es/def/core#isComponentOf") )) { 
+					auxiliarRDF = retrieveThingRDF(endpoint, object);
+				}
+				tedFiltered.add(auxiliarRDF);
+			}else if(object.startsWith("_:")){
+				// tedFiltered.add(ResourceFactory.createResource(thingIri),predicate,ResourceFactory.createResource());
+			}else {
+				Literal literal = ResourceFactory.createPlainLiteral(object);
+				tedFiltered.add(ResourceFactory.createResource(thingIri),predicate, literal);
+			}
+		return tedFiltered;
+	}
+
+    /**
+     * This method transforms a String variable with RDF content into a jena {@link Model}
+     * @param strRDF A String variable containing RDF in "JSON-LD" format
+     * @return a jena {@link Model}
+     */
+    private  Model parseRDF(String strRDF, String format) {
+    		Model parsedModel = ModelFactory.createDefaultModel();
+    		try {
+			 InputStream is = new ByteArrayInputStream( strRDF.getBytes() );
+			 parsedModel.read(is, null, format);
+    		}catch(Exception e) {
+    			String message = ("Something went wrong parsing RDF\n").concat(e.toString());
+    			log.severe(message);
+    		}
+		return parsedModel;
+	}
+    
+    /**
+     * This method transforms the RDF within a {@link Model} into a String variable
+     * @param model a jena {@link Model} 
+     * @return a String variable with the same RDF of the input {@link Model} in "TURTLE" format
+     */
+    private String toString(Model model, String format) {
+		Writer output = new StringWriter();
+		model.write(output, format);
+		return output.toString();
+	}
+
+
+    
 }
