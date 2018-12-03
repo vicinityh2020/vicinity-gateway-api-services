@@ -41,7 +41,7 @@ public class GatewayServicesController {
     private static final String HEADER_ACCEPT_KEY = "Accept";
     private final String queryHead = "?name=&infer=true&sameAs=true&query=";
 
-    	private Map<String,Model> cache = new ConcurrentHashMap<String, Model>();
+    	public static Map<String,Model> cache = new ConcurrentHashMap<String, Model>();
     
     // -- Constructor
     public GatewayServicesController() {
@@ -351,7 +351,7 @@ public class GatewayServicesController {
 				log.severe(e.toString());
 			}
     		}
-
+    		cache.clear();
     		return ted;
     }
 

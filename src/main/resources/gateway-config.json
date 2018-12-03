@@ -1,5 +1,5 @@
 {
 	"AGORA_ENDPOINT" : "http://localhost:8000",
 	"DATA_DOMAIN" : "http://vicinity.eu/data",
-	"SEMANTIC_REPOSITORY_ENDPOINT" : "http://147.232.202.107:9080/repositories/vicinity-test",
+	"SEMANTIC_REPOSITORY_ENDPOINT" : "http://147.232.202.108:9080/repositories/vicinity-test",
 }
