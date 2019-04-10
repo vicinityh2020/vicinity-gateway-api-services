@@ -1,5 +1,11 @@
 package service.controller;
 
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.query.QuerySolution;
+import org.apache.jena.query.ResultSet;
 import org.apache.jena.rdf.model.Literal;
 import org.apache.jena.rdf.model.Model;
 import org.apache.jena.rdf.model.ModelFactory;
@@ -11,6 +17,8 @@ import org.json.JSONObject;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
+
 import javax.servlet.http.HttpServletResponse;
 import java.io.*;
 import java.net.URLEncoder;
@@ -20,7 +28,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -41,7 +55,6 @@ public class GatewayServicesController {
     private static final String HEADER_ACCEPT_KEY = "Accept";
     private final String queryHead = "?name=&infer=true&sameAs=true&query=";
 
-    	public static Map<String,Model> cache = new ConcurrentHashMap<String, Model>();
     
     // -- Constructor
     public GatewayServicesController() {
@@ -338,26 +351,38 @@ public class GatewayServicesController {
     		prepareResonse(response);
     		Unirest.setTimeouts(0, 0);
     		String ted = "{}";
+    		// Clean the query from realTime FILTER statements
+    		query = cleanQuery(query);
     		String endpoint = repositoryEndpoint;
     		// 1. Following variables are Agora bespoke setup, we set them with such values since fit better for VICINITY requirements
     		if(!query.isEmpty()) {
     			try {
 	    				log.info("Discovery query received");
 	    				// Build TED
-	    	    			ted = buildTED(endpoint, neighbors);
+	    	    			ted = buildParallelTED(endpoint, neighbors, query);
 					response.setStatus( HttpServletResponse.SC_OK );
 					log.info("TED answered");
 			} catch (Exception e) {
 				log.severe(e.toString());
 			}
     		}
-    		cache.clear();
+
     		return ted;
     }
 
 
 
-	private String buildTED(String endpoint, String ted) {
+	private String cleanQuery(String query) {
+		String newQuery = query;
+		if(query.contains("FILTER")) {
+			newQuery = query.replaceAll(".*FILTER.*", "" );
+		}
+		
+		return newQuery;
+	}
+
+
+	private String buildTED(String endpoint, String ted, String query) {
 		Model tedFiltered = parseRDF("<http://vicinity.eu/data/ted> a <http://iot.linkeddata.es/def/core#ThingEcosystemDescription>;\n   <http://iot.linkeddata.es/def/core#describes> <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225> .\n \n <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225>  a <http://iot.linkeddata.es/def/core#Ecosystem>.", "TURTLE");
 		Property hasComponentPredicate = ResourceFactory.createProperty("http://iot.linkeddata.es/def/core#hasComponent");
 		String[] oids = ted.split(",");
@@ -365,55 +390,113 @@ public class GatewayServicesController {
 		int index = 0;
 		while(index < maxIndex) {
 			String oid = oids[index].trim();
+			
 			String thing = GatewayServicesController.dataDomain+"/things/"+oid;
-			if(!cache.containsKey(thing)) {
+			
 				// retrieve all the RDF of the IRI in 'line'
 				this.visitedIRIs = new ArrayList<>();
-				Model thingRDF = retrieveThingRDF(endpoint, thing);
-				if(!thingRDF.isEmpty()) {
+				Model thingRDF = retrieveThingRDF(endpoint, thing, oid);
+				Boolean isRelevant = true;// isRelevantObject(thingRDF, query);
+				log.info("Querying: "+oid+"; Relevant: "+isRelevant);
+				if(!thingRDF.isEmpty() && isRelevant) {
 					// add thing to ted
 					tedFiltered.add(ResourceFactory.createResource("http://bnodes/N9e711c303f3e40f7872d87ccb66cc225"), hasComponentPredicate, ResourceFactory.createResource(thing));
 					tedFiltered.add(thingRDF);
-					cache.put(thing, thingRDF);
 				}
-			}else {
-				tedFiltered.add(ResourceFactory.createResource("http://bnodes/N9e711c303f3e40f7872d87ccb66cc225"), hasComponentPredicate, ResourceFactory.createResource(thing));
-				tedFiltered.add(cache.get(thing));
-			}
 			
 			index++;
 		}
-		// TODO: IMPROVE THIS CACHE
+		
 		
 		
 		return toString(tedFiltered,"JSONLD");
 	}
 	
+	private String buildParallelTED(String endpoint, String ted, String query) {
+		Model tedFiltered = parseRDF("<http://vicinity.eu/data/ted> a <http://iot.linkeddata.es/def/core#ThingEcosystemDescription>;\n   <http://iot.linkeddata.es/def/core#describes> <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225> .\n \n <http://bnodes/N9e711c303f3e40f7872d87ccb66cc225>  a <http://iot.linkeddata.es/def/core#Ecosystem>.", "TURTLE");
+		Property hasComponentPredicate = ResourceFactory.createProperty("http://iot.linkeddata.es/def/core#hasComponent");
+		String[] oids = ted.split(",");
+		int maxIndex = oids.length;
+		int index = 0;
+		// parallelization
+		ExecutorService executorService = Executors.newFixedThreadPool(100);
+		List<Callable<Model>> taskList = new ArrayList<>();
+		while(index < maxIndex) {
+			String oid = oids[index].trim();
+			 Callable<Model> task = () -> {
+				String thing = GatewayServicesController.dataDomain+"/things/"+oid;
+				Model thingRDFResult = ModelFactory.createDefaultModel();
+				// retrieve all the RDF of the IRI in 'line'
+				this.visitedIRIs = new ArrayList<>();
+				Model thingRDF = retrieveThingRDF(endpoint, thing, oid);
+				Boolean isRelevant = isRelevantObject(thingRDF, query);
+				log.info("Querying: "+oid+"; Relevant: "+isRelevant);
+				if(!thingRDF.isEmpty() && isRelevant) {
+					// add thing to ted
+					thingRDFResult.add(ResourceFactory.createResource("http://bnodes/N9e711c303f3e40f7872d87ccb66cc225"), hasComponentPredicate, ResourceFactory.createResource(thing));
+					thingRDFResult.add(thingRDF);
+				}
+				return thingRDFResult;
+			};
+			taskList.add(task);
+			index++;
+		}
+		try {
+			List<Future<Model>> futures = executorService.invokeAll(taskList);
+			futures.forEach(futureModel -> {
+				try {
+					tedFiltered.add(futureModel.get());
+				} catch (InterruptedException | ExecutionException e) {
+					e.printStackTrace();
+				}
+			});
+		}catch (Exception e) {
+			e.printStackTrace();
+		}
+		return toString(tedFiltered,"JSONLD");
+	}
+	
+	
+	
+	private Boolean isRelevantObject(Model model, String queryString) {
+		Boolean isRelevant = false;
+		  try {
+			Query query = QueryFactory.create(queryString) ;
+			QueryExecution qexec = QueryExecutionFactory.create(query, model);
+		    ResultSet results = qexec.execSelect() ;
+		    isRelevant  = results.hasNext(); 
+		    qexec.close();
+		  } catch (Exception e) {
+			  e.printStackTrace();
+		  }
+		return isRelevant;
+	}
+	
+
 	private List<String> visitedIRIs;
-	private Model retrieveThingRDF(String endpoint, String thingIri) {
+	private Model retrieveThingRDF(String endpoint, String thingIri, String oid) {
 		Model tedFiltered = ModelFactory.createDefaultModel();
 
 		try {
 			if(!visitedIRIs.contains(thingIri)) {
 				visitedIRIs.add(thingIri);
-				String thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("select distinct * where { <"+thingIri+"> ?p ?o . }","UTF-8")+"&execute=";
+				String thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("SELECT DISTINCT * where {\n" + 
+						" {\n" + 
+						"  	GRAPH <http://vicinity.eu/data/descriptions/"+oid+">  {\n" + 
+						"    	?s ?p ?o .\n" + 
+						"    }       \n" + 
+						" } UNION {\n" + 
+						"    GRAPH <http://vicinity.eu/data/things/"+oid+">  {\n" + 
+						"    	?s ?p ?o .\n" + 
+						"    } \n" + 
+						" }\n" + 
+						"}","UTF-8")+"&execute=";
+				
+				
 				String thingRDF = Unirest.get(thingRequest).asString().getBody();
-				String[] thingLines = thingRDF.split("\n");
-				int maxIndex = thingLines.length;
-				int index = 1;
-				while(index < maxIndex) {
-					String thingLine = thingLines[index];
-					int commaIndex = thingLine.indexOf(',');
-					if(commaIndex>-1) {
-						Property predicate = ResourceFactory.createProperty(thingLine.substring(0, commaIndex).trim());
-						String object =  thingLine.substring(commaIndex+1, thingLine.length()).trim();
-						Model thingRDFRetrieved = processThingRDF(endpoint, predicate, object, thingIri);
-						tedFiltered.add(thingRDFRetrieved);
-						index++;
-					}else {
-						break;
-					}
-				}
+				String[] lines = thingRDF.split("\n");
+				Model thingRDFModel =  buildRDF(endpoint,lines);
+				tedFiltered.add(thingRDFModel);
 			}
 		} catch (Exception e) {
 			log.severe(e.toString());
@@ -422,23 +505,66 @@ public class GatewayServicesController {
 		return tedFiltered;
 	}
 	
-	private Model processThingRDF(String endpoint, Property predicate, String object, String thingIri) {
-		Model tedFiltered = ModelFactory.createDefaultModel();
-			if(object.startsWith("http")) {
+	
+	
+	private Model buildRDF(String endpoint, String[] lines) {
+		Model rdfModel = ModelFactory.createDefaultModel();
+		for(int i = 1; i<lines.length;i++) {
+			String line = lines[i];
+			int firstComma = line.indexOf(",");
+			String subject = line.substring(0, firstComma);
+			line = line.substring(firstComma+1,line.length());
+			int secondComma =line.indexOf(",");
+			String predicate = line.substring(0, secondComma);		
+			String object = line.substring(secondComma+1, line.length()).trim();
+			Resource subjectModel = ResourceFactory.createResource(subject.trim());
+			Property propertyModel = ResourceFactory.createProperty(predicate.trim());
+			if(object.startsWith("http") && !predicate.contains("wot#href")) {
 				Resource resource = ResourceFactory.createResource(object);
-				tedFiltered.add(ResourceFactory.createResource(thingIri),predicate, resource);
-				Model auxiliarRDF = ModelFactory.createDefaultModel();
-				if(object.contains("/things") || object.contains("/descriptions") || ( object.startsWith("http://bnode") && !predicate.toString().contains("http://iot.linkeddata.es/def/core#isComponentOf") )) { 
-					auxiliarRDF = retrieveThingRDF(endpoint, object);
+				rdfModel.add(subjectModel, propertyModel, resource);
+				// TODO: here retrive the ownership
+				if(predicate.contains("hasOwner") || predicate.contains("hasValue") || predicate.contains("owns") ) { 
+					Model ownership = processOwnerRDF(endpoint, object.replaceAll(dataDomain+"/things/", ""));
+					rdfModel.add(ownership);
 				}
-				tedFiltered.add(auxiliarRDF);
+				
 			}else if(object.startsWith("_:")){
 				// tedFiltered.add(ResourceFactory.createResource(thingIri),predicate,ResourceFactory.createResource());
 			}else {
 				Literal literal = ResourceFactory.createPlainLiteral(object);
-				tedFiltered.add(ResourceFactory.createResource(thingIri),predicate, literal);
+				rdfModel.add(subjectModel,propertyModel, literal);
 			}
-		return tedFiltered;
+		}
+		
+		return rdfModel;
+	}
+	
+	private Model processOwnerRDF(String endpoint, String oid) {
+		Model rdfResult = ModelFactory.createDefaultModel();
+		String thingRequest;
+		try {
+			thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("SELECT DISTINCT * where {\n" + 
+					" {\n" + 
+					"  	GRAPH <http://vicinity.eu/data/descriptions/"+oid+">  {\n" + 
+					"    	?s ?p ?o .\n" + 
+					"    }       \n" + 
+					" } UNION {\n" + 
+					"    GRAPH <http://vicinity.eu/data/things/"+oid+">  {\n" + 
+					"    	?s ?p ?o .\n" + 
+					"    } \n" + 
+					" }\n" + 
+					"}","UTF-8")+"&execute=";
+			
+			String thingRDF = Unirest.get(thingRequest).asString().getBody();
+			
+			String[] lines = thingRDF.split("\n");
+			rdfResult.add(buildRDF(endpoint, lines));
+			
+		} catch (UnsupportedEncodingException | UnirestException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return rdfResult;
 	}
 
     /**

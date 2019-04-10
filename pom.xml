@@ -63,11 +63,7 @@
 			<type>pom</type>
 		</dependency>
 
-	   <dependency>
-            <groupId>vicinity.oeg.vicinity-open-gateway-api-distributed-query-client</groupId>
-    		<artifactId>vicinity-open-gateway-api-distributed-query-client</artifactId>
-    		<version>1.0</version>
-        </dependency>
+	
     </dependencies>
 
 	<build>
