@@ -461,11 +461,13 @@ public class GatewayServicesController {
 	private Boolean isRelevantObject(Model model, String queryString) {
 		Boolean isRelevant = false;
 		  try {
-			Query query = QueryFactory.create(queryString) ;
-			QueryExecution qexec = QueryExecutionFactory.create(query, model);
-		    ResultSet results = qexec.execSelect() ;
-		    isRelevant  = results.hasNext(); 
-		    qexec.close();
+			  if(!model.isEmpty()) {
+				Query query = QueryFactory.create(queryString) ;
+				QueryExecution qexec = QueryExecutionFactory.create(query, model);
+			    ResultSet results = qexec.execSelect() ;
+			    isRelevant  = results.hasNext(); 
+			    qexec.close();
+			  }
 		  } catch (Exception e) {
 			  e.printStackTrace();
 		  }
