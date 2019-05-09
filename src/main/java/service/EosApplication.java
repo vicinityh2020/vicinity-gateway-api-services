@@ -24,6 +24,7 @@ public class EosApplication implements ApplicationRunner{
 
     @Override
 	public void run(ApplicationArguments args) throws Exception {
+    		System.out.println("EOS v.2");
         String [] stringArgs = args.getSourceArgs();
         // 1. Check console arguments
         if(stringArgs.length == 2 && stringArgs[0].equals("--config")){
