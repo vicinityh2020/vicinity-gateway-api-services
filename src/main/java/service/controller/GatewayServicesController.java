@@ -38,7 +38,11 @@ import java.util.concurrent.Future;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-
+/**
+ * This controller is in charge or receiving requests from the Gateway API Distributed query client and provide a suitable TED that contains the relevant IoT infrastructures to answer a SPARQL query
+ * @author cimmino
+ *
+ */
 @Controller
 public class GatewayServicesController {
 
@@ -329,15 +333,6 @@ public class GatewayServicesController {
         return plan;
     }
     
-    /**
-     * This method transforms a query into a AGP required by Agora
-     * @param query A SPARQL query
-     * @return An AGP
-     */
-    private String transformToAGP(String query) {
-    		// 1. Retrieve AGP from query	
-    		return null;
-    }
     
     /**
      * This method returns a Thing Ecosystem Description (TED) containing Things relevant to answer a given query
@@ -482,17 +477,7 @@ public class GatewayServicesController {
 		try {
 			if(!visitedIRIs.contains(thingIri)) {
 				visitedIRIs.add(thingIri);
-				String thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("SELECT DISTINCT * where {\n" + 
-						" {\n" + 
-						"  	GRAPH <http://vicinity.eu/data/descriptions/"+oid+">  {\n" + 
-						"    	?s ?p ?o .\n" + 
-						"    }       \n" + 
-						" } UNION {\n" + 
-						"    GRAPH <http://vicinity.eu/data/things/"+oid+">  {\n" + 
-						"    	?s ?p ?o .\n" + 
-						"    } \n" + 
-						" }\n" + 
-						"}","UTF-8")+"&execute=";
+				String thingRequest = endpoint+this.queryHead.replace("query=", "query=")+URLEncoder.encode("SELECT DISTINCT * where {\n {\n  	GRAPH <http://vicinity.eu/data/descriptions/"+oid+">  {\n    	?s ?p ?o .\n    }       \n } UNION {\n    GRAPH <http://vicinity.eu/data/things/"+oid+">  {\n    	?s ?p ?o .\n    } \n }\n}","UTF-8")+"&execute=";
 				
 				
 				String thingRDF = Unirest.get(thingRequest).asString().getBody();
